@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Methane Detection AI</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; font-family:'Inter', sans-serif; }
+    body {
+      background: linear-gradient(135deg,#0a0f1f,#1c2a3a);
+      min-height:100vh; color:#f1f5f9;
+      display:flex; justify-content:center; align-items:center;
+      padding:20px;
+    }
+    .container {
+      width:100%; max-width:700px; text-align:center; padding:50px;
+      border-radius:20px; background: rgba(255,255,255,0.05);
+      backdrop-filter: blur(20px);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+      animation: fadeIn 1s ease;
+    }
+    h1 {
+      font-size:3rem; font-weight:800;
+      background: linear-gradient(90deg,#06b6d4,#3b82f6);
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+      margin-bottom:15px; animation: fadeInUp 1s ease;
+    }
+    .subtitle { font-size:1.1rem; color:#cbd5e1; margin-bottom:40px; animation: fadeInUp 1.2s ease; }
+
+    .upload-box {
+      border:2px dashed rgba(59,130,246,0.6); border-radius:20px; padding:40px; cursor:pointer;
+      transition:0.4s; background: rgba(255,255,255,0.02);
+      display:flex; flex-direction:column; align-items:center; gap:10px;
+    }
+    .upload-box:hover {
+      background: rgba(59,130,246,0.1); transform:scale(1.05);
+      box-shadow:0 10px 25px rgba(59,130,246,0.5);
+      animation: pulse 1.2s infinite;
+    }
+    .upload-box span { color:#3b82f6; font-size:1.2rem; font-weight:600; }
+
+    .btn {
+      margin-top:25px; padding:16px 35px;
+      background: linear-gradient(90deg,#3b82f6,#06b6d4);
+      border:none; border-radius:15px; font-weight:700;
+      color:#fff; cursor:pointer; transition:all 0.3s ease;
+      box-shadow:0 8px 20px rgba(59,130,246,0.5);
+    }
+    .btn:hover { transform:translateY(-3px); box-shadow:0 10px 30px rgba(59,130,246,0.8); }
+
+    .spinner {
+      margin:30px auto; width:60px; height:60px;
+      border:6px solid rgba(255,255,255,0.2);
+      border-top:6px solid #3b82f6; border-radius:50%;
+      animation:spin 1s linear infinite; display:none;
+    }
+
+    .result {
+      margin-top:40px; padding:25px; border-radius:20px; font-size:1.25rem; font-weight:700;
+      backdrop-filter:blur(15px); border:1px solid rgba(255,255,255,0.1);
+      animation: fadeInUp 0.8s ease;
+    }
+    .result.methane { background: rgba(239,68,68,0.15); border-color:#ef4444; color:#f87171; }
+    .result.no-methane { background: rgba(34,197,94,0.15); border-color:#22c55e; color:#4ade80; }
+    .result.uncertain { background: rgba(234,179,8,0.15); border-color:#eab308; color:#facc15; }
+
+    .confidence-bar {
+      margin-top:18px; width:100%; height:14px;
+      border-radius:12px; background:rgba(255,255,255,0.1);
+      overflow:hidden;
+    }
+    .confidence-fill {
+      height:100%; width:0; border-radius:12px;
+      background: linear-gradient(90deg,#06b6d4,#3b82f6);
+      transition:width 1s ease;
+    }
+
+    #map {
+      height: 400px;
+      width: 100%;
+      margin-top: 40px;
+      border-radius: 15px;
+      box-shadow: 0 0 20px rgba(59,130,246,0.3);
+    }
+
+    @keyframes spin {0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
+    @keyframes fadeIn {from{opacity:0} to{opacity:1}}
+    @keyframes fadeInUp {from{opacity:0; transform:translateY(30px)} to{opacity:1; transform:translateY(0)}}
+    @keyframes pulse {0%,100%{transform:scale(1.05)}50%{transform:scale(1.08)}}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🌍 Climate AI</h1>
+    <p class="subtitle"></p>
+
+    <!-- Upload Section (connected to Flask backend) -->
+    <form method="POST" enctype="multipart/form-data" onsubmit="showSpinner()">
+      <label for="file-upload" class="upload-box">
+        <input id="file-upload" type="file" name="file" accept="image/*" hidden>
+        <span>📂 Click or Drag & Drop an Image</span>
+      </label>
+      <button type="submit" class="btn">🔍 Analyze Image</button>
+    </form>
+
+    <div class="spinner" id="spinner"></div>
+
+    {% if result %}
+    <div class="result {% if 'Methane Detected' in result %} methane {% elif 'No Methane' in result %} no-methane {% else %} uncertain {% endif %}">
+      <p>{{ result }}</p>
+      <div class="confidence-bar">
+        <div class="confidence-fill" id="confidence-fill"></div>
+      </div>
+    </div>
+    <script>
+      const conf = "{{ result.split('confidence:')[-1].replace(')','').strip() if 'confidence' in result else '0' }}";
+      const fill = document.getElementById("confidence-fill");
+      if(fill){ fill.style.width = (parseFloat(conf)*100)+"%"; }
+    </script>
+    {% endif %}
+
+    <!-- Map Section -->
+    <div id="map"></div>
+    <button id="generateBtn" class="btn" style="margin-top:20px;">🌐 Generate Map Data</button>
+  </div>
+
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script>
+    function showSpinner(){ document.getElementById("spinner").style.display="block"; }
+
+    // Initialize map (empty initially)
+    const map = L.map('map').setView([20.5937, 78.9629], 4); // Center: India
+
+    // Add map tiles
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 18,
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    const markers = [];
+    const statuses = [
+      { color: 'red', text: '🟥 Methane Detected' },
+      { color: 'yellow', text: '🟨 Uncertain' }
+    ];
+
+    function generateRandomMarkers() {
+      // Remove existing markers
+      markers.forEach(m => map.removeLayer(m));
+      markers.length = 0;
+
+      for (let i = 0; i < 10; i++) {
+        const lat = 8 + Math.random() * 22; // Latitude range for India
+        const lng = 68 + Math.random() * 25; // Longitude range for India
+        const status = statuses[Math.floor(Math.random() * statuses.length)];
+
+        const circle = L.circleMarker([lat, lng], {
+          color: status.color,
+          fillColor: status.color,
+          fillOpacity: 0.7,
+          radius: 10
+        }).addTo(map);
+
+        circle.bindPopup(`<b>${status.text}</b><br>Lat: ${lat.toFixed(2)}, Lng: ${lng.toFixed(2)}`);
+        markers.push(circle);
+      }
+    }
+
+    // Only generate markers when button is clicked
+    document.getElementById("generateBtn").addEventListener("click", generateRandomMarkers);
+  </script>
+</body>
+</html>
