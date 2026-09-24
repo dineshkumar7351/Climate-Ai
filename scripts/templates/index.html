@@ -3,172 +3,1136 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Methane Detection AI</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-  <style>
-    * { margin:0; padding:0; box-sizing:border-box; font-family:'Inter', sans-serif; }
-    body {
-      background: linear-gradient(135deg,#0a0f1f,#1c2a3a);
-      min-height:100vh; color:#f1f5f9;
-      display:flex; justify-content:center; align-items:center;
-      padding:20px;
-    }
-    .container {
-      width:100%; max-width:700px; text-align:center; padding:50px;
-      border-radius:20px; background: rgba(255,255,255,0.05);
-      backdrop-filter: blur(20px);
-      box-shadow: 0 20px 60px rgba(0,0,0,0.6);
-      animation: fadeIn 1s ease;
-    }
-    h1 {
-      font-size:3rem; font-weight:800;
-      background: linear-gradient(90deg,#06b6d4,#3b82f6);
-      -webkit-background-clip:text; -webkit-text-fill-color:transparent;
-      margin-bottom:15px; animation: fadeInUp 1s ease;
-    }
-    .subtitle { font-size:1.1rem; color:#cbd5e1; margin-bottom:40px; animation: fadeInUp 1.2s ease; }
-
-    .upload-box {
-      border:2px dashed rgba(59,130,246,0.6); border-radius:20px; padding:40px; cursor:pointer;
-      transition:0.4s; background: rgba(255,255,255,0.02);
-      display:flex; flex-direction:column; align-items:center; gap:10px;
-    }
-    .upload-box:hover {
-      background: rgba(59,130,246,0.1); transform:scale(1.05);
-      box-shadow:0 10px 25px rgba(59,130,246,0.5);
-      animation: pulse 1.2s infinite;
-    }
-    .upload-box span { color:#3b82f6; font-size:1.2rem; font-weight:600; }
-
-    .btn {
-      margin-top:25px; padding:16px 35px;
-      background: linear-gradient(90deg,#3b82f6,#06b6d4);
-      border:none; border-radius:15px; font-weight:700;
-      color:#fff; cursor:pointer; transition:all 0.3s ease;
-      box-shadow:0 8px 20px rgba(59,130,246,0.5);
-    }
-    .btn:hover { transform:translateY(-3px); box-shadow:0 10px 30px rgba(59,130,246,0.8); }
-
-    .spinner {
-      margin:30px auto; width:60px; height:60px;
-      border:6px solid rgba(255,255,255,0.2);
-      border-top:6px solid #3b82f6; border-radius:50%;
-      animation:spin 1s linear infinite; display:none;
-    }
-
-    .result {
-      margin-top:40px; padding:25px; border-radius:20px; font-size:1.25rem; font-weight:700;
-      backdrop-filter:blur(15px); border:1px solid rgba(255,255,255,0.1);
-      animation: fadeInUp 0.8s ease;
-    }
-    .result.methane { background: rgba(239,68,68,0.15); border-color:#ef4444; color:#f87171; }
-    .result.no-methane { background: rgba(34,197,94,0.15); border-color:#22c55e; color:#4ade80; }
-    .result.uncertain { background: rgba(234,179,8,0.15); border-color:#eab308; color:#facc15; }
-
-    .confidence-bar {
-      margin-top:18px; width:100%; height:14px;
-      border-radius:12px; background:rgba(255,255,255,0.1);
-      overflow:hidden;
-    }
-    .confidence-fill {
-      height:100%; width:0; border-radius:12px;
-      background: linear-gradient(90deg,#06b6d4,#3b82f6);
-      transition:width 1s ease;
-    }
-
-    #map {
-      height: 400px;
-      width: 100%;
-      margin-top: 40px;
-      border-radius: 15px;
-      box-shadow: 0 0 20px rgba(59,130,246,0.3);
-    }
-
-    @keyframes spin {0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
-    @keyframes fadeIn {from{opacity:0} to{opacity:1}}
-    @keyframes fadeInUp {from{opacity:0; transform:translateY(30px)} to{opacity:1; transform:translateY(0)}}
-    @keyframes pulse {0%,100%{transform:scale(1.05)}50%{transform:scale(1.08)}}
-  </style>
+  <title>Climate-AI — 3D Earth & Methane Plume Digital Twin</title>
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  
+  <!-- CSS -->
+  <link rel="stylesheet" href="/static/style.css">
+  
+  <!-- Three.js & Controls -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js"></script>
 </head>
 <body>
-  <div class="container">
-    <h1>🌍 Climate AI</h1>
-    <p class="subtitle"></p>
 
-    <!-- Upload Section (connected to Flask backend) -->
-    <form method="POST" enctype="multipart/form-data" onsubmit="showSpinner()">
-      <label for="file-upload" class="upload-box">
-        <input id="file-upload" type="file" name="file" accept="image/*" hidden>
-        <span>📂 Click or Drag & Drop an Image</span>
-      </label>
-      <button type="submit" class="btn">🔍 Analyze Image</button>
-    </form>
+  <!-- 3D WebGL Canvas -->
+  <div id="canvas-container"></div>
 
-    <div class="spinner" id="spinner"></div>
+  <!-- Reticle Target Overlay -->
+  <div class="target-reticle" id="targetReticle"></div>
 
-    {% if result %}
-    <div class="result {% if 'Methane Detected' in result %} methane {% elif 'No Methane' in result %} no-methane {% else %} uncertain {% endif %}">
-      <p>{{ result }}</p>
-      <div class="confidence-bar">
-        <div class="confidence-fill" id="confidence-fill"></div>
-      </div>
-    </div>
-    <script>
-      const conf = "{{ result.split('confidence:')[-1].replace(')','').strip() if 'confidence' in result else '0' }}";
-      const fill = document.getElementById("confidence-fill");
-      if(fill){ fill.style.width = (parseFloat(conf)*100)+"%"; }
-    </script>
-    {% endif %}
-
-    <!-- Map Section -->
-    <div id="map"></div>
-    <button id="generateBtn" class="btn" style="margin-top:20px;">🌐 Generate Map Data</button>
+  <!-- Loading / Scanning HUD Overlay -->
+  <div class="loading-scanner" id="loadingScanner">
+    <div class="loading-spinner"></div>
+    <div class="loading-text" id="loadingStatusText">PROCESSING SPECTRAL SATELLITE TILES...</div>
   </div>
 
-  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <!-- HUD Overlay -->
+  <div class="hud-overlay">
+    
+    <!-- Top Navigation Bar -->
+    <header class="top-bar hud-interactive">
+      <div class="brand-section">
+        <div class="logo-icon">🌍</div>
+        <div>
+          <span class="brand-title">CLIMATE-AI</span>
+          <span class="brand-badge">3D DIGITAL TWIN v2.4</span>
+        </div>
+      </div>
+
+      <!-- Mode Selector -->
+      <div class="view-mode-tabs">
+        <button class="tab-btn active" id="btnModeGlobe" onclick="switchViewMode('globe')">
+          <span>🌐</span> Global 3D Orbit
+        </button>
+        <button class="tab-btn" id="btnModePlume" onclick="switchViewMode('plume')">
+          <span>⛰️</span> 3D Plume Topography
+        </button>
+      </div>
+
+      <!-- Telemetry Status -->
+      <div class="system-status">
+        <div class="status-pill">
+          <div class="status-dot"></div>
+          <span id="activeSatsCount">4 SATELLITES TRACKING</span>
+        </div>
+        <div class="utc-clock" id="utcClock">UTC 00:00:00</div>
+      </div>
+    </header>
+
+    <!-- Main Dashboard Grid -->
+    <main class="main-grid">
+      
+      <!-- Left Panel: Satellite Upload & AI Detection -->
+      <aside class="glass-panel hud-interactive" id="leftPanel">
+        <div class="panel-header">
+          <div class="panel-title">
+            <span>🛰️</span> Mission Control
+          </div>
+          <span class="panel-tag">CNN-INFERENCE</span>
+        </div>
+
+        <!-- Drag & Drop Satellite Upload -->
+        <div class="dropzone" id="dropzone" onclick="document.getElementById('fileInput').click()">
+          <input type="file" id="fileInput" accept=".tif,.tiff,.png,.jpg,.jpeg" style="display: none;" onchange="handleFileSelect(event)">
+          <div class="dropzone-icon">📡</div>
+          <div class="dropzone-text">Drop Satellite GeoTIFF or Image</div>
+          <div class="dropzone-hint">Supports Sentinel-5P, EMIT, Landsat, Tanager-1</div>
+        </div>
+
+        <!-- Quick Test Presets -->
+        <div class="presets-container">
+          <div class="presets-label">Test Real Satellite Scenarios</div>
+          <div class="preset-btns-grid">
+            <button class="preset-btn" onclick="loadSamplePreset('high_plume')">
+              <span>🔥 Permian Plume</span>
+              <span class="sub">EMIT SWIR (4.8 t/hr)</span>
+            </button>
+            <button class="preset-btn" onclick="loadSamplePreset('clean')">
+              <span>🌿 Clean Baseline</span>
+              <span class="sub">Ambient Background</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- AI Inference Result Card -->
+        <div class="result-card" id="resultCard" style="display: none;">
+          <div class="verdict-banner no-methane" id="verdictBanner">
+            <span id="verdictText">INITIALIZING...</span>
+            <span id="verdictIcon">✅</span>
+          </div>
+
+          <!-- Confidence Meter -->
+          <div class="confidence-container">
+            <div class="conf-labels">
+              <span>AI Model Confidence</span>
+              <span id="confValueText">98.4%</span>
+            </div>
+            <div class="conf-track">
+              <div class="conf-fill" id="confFill"></div>
+            </div>
+          </div>
+
+          <!-- Physical Telemetry Metrics -->
+          <div class="metrics-grid">
+            <div class="metric-box">
+              <div class="metric-title">Est. Flux Rate</div>
+              <div class="metric-value" id="metricFlux">-- <span class="metric-unit">kg/h</span></div>
+            </div>
+            <div class="metric-box">
+              <div class="metric-title">Peak Column CH₄</div>
+              <div class="metric-value" id="metricPeak">-- <span class="metric-unit">ppm·m</span></div>
+            </div>
+            <div class="metric-box">
+              <div class="metric-title">Plume Area</div>
+              <div class="metric-value" id="metricArea">-- <span class="metric-unit">km²</span></div>
+            </div>
+            <div class="metric-box">
+              <div class="metric-title">Risk Severity</div>
+              <div class="metric-value" id="metricRisk" style="font-size: 0.9rem; color: var(--emerald-green);">NORMAL</div>
+            </div>
+          </div>
+
+          <!-- Action: 3D Surface Inspection -->
+          <button class="action-btn" id="btnInspect3D" onclick="inspectIn3D()">
+            <span>⛰️</span> Inspect in 3D Elevation Mesh
+          </button>
+        </div>
+
+        <!-- Spectral Absorption Curve Canvas -->
+        <div class="result-card" style="padding: 12px;">
+          <div style="font-size: 0.75rem; font-family: var(--font-mono); color: var(--cyan-glow); margin-bottom: 6px; display: flex; justify-content: space-between;">
+            <span>SWIR ABSORPTION PROFILE</span>
+            <span style="color: var(--text-dim);">CH₄ Band (2.3 µm)</span>
+          </div>
+          <canvas id="spectralCanvas" width="320" height="90" style="width: 100%; height: 90px;"></canvas>
+        </div>
+
+      </aside>
+
+      <!-- Center Spacer / 3D Canvas Viewport Focus -->
+      <div style="pointer-events: none;"></div>
+
+      <!-- Right Panel: Global Hotspots & 3D Environment Controls -->
+      <aside class="glass-panel hud-interactive" id="rightPanel">
+        <div class="panel-header">
+          <div class="panel-title">
+            <span>🔥</span> Global Hotspots
+          </div>
+          <span class="panel-tag">LIVE-RADAR</span>
+        </div>
+
+        <!-- Hotspot List -->
+        <div class="hotspots-list" id="hotspotsList">
+          <!-- Populated via JS -->
+        </div>
+
+        <!-- 3D Environment Controls -->
+        <div class="panel-header" style="margin-top: 10px;">
+          <div class="panel-title">
+            <span>🎛️</span> 3D Model Settings
+          </div>
+          <span class="panel-tag">RENDER-ENGINE</span>
+        </div>
+
+        <div class="controls-group">
+          <div class="control-row">
+            <span class="control-label">Globe Auto-Rotation</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="toggleRotate" checked onchange="toggleAutoRotation(this.checked)">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+
+          <div class="control-row">
+            <span class="control-label">Atmospheric Corona</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="toggleAtmo" checked onchange="toggleAtmosphere(this.checked)">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+
+          <div class="control-row">
+            <span class="control-label">Orbiting Satellites</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="toggleSats" checked onchange="toggleSatellites(this.checked)">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+
+          <div class="control-row">
+            <span class="control-label">3D Emission Beams</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="toggleBeams" checked onchange="toggleEmissionBeams(this.checked)">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+
+          <div class="control-row">
+            <span class="control-label">3D Surface Height Scale</span>
+            <input type="range" class="slider-input" id="sliderHeight" min="1" max="40" value="18" oninput="updatePlumeHeightScale(this.value)">
+          </div>
+
+          <div class="control-row">
+            <span class="control-label">3D Terrain Colormap</span>
+            <select class="select-input" id="selectColormap" onchange="updateColormap(this.value)">
+              <option value="plasma">Thermal Plasma</option>
+              <option value="turbo">Spectral Turbo</option>
+              <option value="cyber">Cyber Neon</option>
+              <option value="infrared">SWIR Infrared</option>
+            </select>
+          </div>
+
+          <div class="control-row">
+            <span class="control-label">Wireframe Mesh Grid</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="toggleWireframe" onchange="togglePlumeWireframe(this.checked)">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+
+          <button class="preset-btn" style="text-align: center; margin-top: 4px;" onclick="reset3DCamera()">
+            <span>🔄 Reset 3D Camera View</span>
+          </button>
+        </div>
+
+      </aside>
+
+    </main>
+
+    <!-- Floating 3D Plume Micro-Terrain Navigation Toolbar (visible in Plume Mode) -->
+    <div class="plume-view-controls hud-interactive" id="plumeToolbar" style="display: none;">
+      <span style="font-size: 0.8rem; font-weight: 700; color: var(--cyan-glow); font-family: var(--font-mono);">
+        3D PLUME TOPOGRAPHY ACTIVE
+      </span>
+      <button class="tab-btn" onclick="togglePlumeParticles()" id="btnParticles">
+        <span>💨</span> Toggle Particle Flow
+      </button>
+      <button class="tab-btn active" onclick="switchViewMode('globe')">
+        <span>🌍</span> Return to Global Orbit
+      </button>
+    </div>
+
+    <!-- Bottom Telemetry HUD Bar -->
+    <footer class="bottom-bar hud-interactive">
+      <div class="telemetry-ticker">
+        <div class="telemetry-item">TARGET: <span class="highlight" id="hudTarget">GLOBAL SURVEY</span></div>
+        <div class="telemetry-item">SENSOR: <span class="highlight">SWIR-2 (2.30 µm)</span></div>
+        <div class="telemetry-item">RESOLUTION: <span class="highlight">5.0 m GSD</span></div>
+        <div class="telemetry-item">MODEL: <span class="highlight">PyTorch ConvNet (8.7M Params)</span></div>
+      </div>
+      <div>
+        <span style="color: var(--text-dim); cursor: pointer;" onclick="alert('Climate-AI 3D Platform v2.4\nAI-powered Methane Super-Emitter Detection & 3D Topographic Mesh Reconstruction.')">
+          ℹ️ SYSTEM SPECS
+        </span>
+      </div>
+    </footer>
+
+  </div>
+
+  <!-- 3D Engine & Application Script -->
   <script>
-    function showSpinner(){ document.getElementById("spinner").style.display="block"; }
+    // Global Application State
+    let scene, camera, renderer, controls;
+    let earthMesh, atmosphereMesh, starfield, cloudsMesh;
+    let satellitesGroup, beamsGroup, particlesGroup;
+    let plumeTerrainGroup, plumeMesh, plumeParticles;
+    
+    let currentMode = 'globe'; // 'globe' | 'plume'
+    let autoRotate = true;
+    let currentElevationGrid = null;
+    let currentPrediction = null;
+    let activeHotspots = [];
+    let currentColormap = 'plasma';
+    let wireframeActive = false;
+    let particlesActive = true;
+    let heightScale = 18;
 
-    // Initialize map (empty initially)
-    const map = L.map('map').setView([20.5937, 78.9629], 4); // Center: India
+    // Colormap Palettes
+    const COLORMAPS = {
+      plasma: [
+        [0.0, [13, 8, 135]],
+        [0.25, [126, 3, 168]],
+        [0.5, [204, 71, 120]],
+        [0.75, [248, 149, 64]],
+        [1.0, [240, 249, 33]]
+      ],
+      turbo: [
+        [0.0, [48, 18, 59]],
+        [0.25, [40, 188, 235]],
+        [0.5, [164, 252, 60]],
+        [0.75, [251, 126, 33]],
+        [1.0, [122, 4, 3]]
+      ],
+      cyber: [
+        [0.0, [6, 9, 19]],
+        [0.3, [0, 240, 255]],
+        [0.7, [16, 185, 129]],
+        [1.0, [255, 0, 128]]
+      ],
+      infrared: [
+        [0.0, [10, 10, 20]],
+        [0.4, [60, 80, 150]],
+        [0.8, [220, 100, 50]],
+        [1.0, [255, 255, 220]]
+      ]
+    };
 
-    // Add map tiles
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 18,
-      attribution: '© OpenStreetMap contributors'
-    }).addTo(map);
+    // Initialize Application on Load
+    window.addEventListener('DOMContentLoaded', () => {
+      init3DEngine();
+      initUI();
+      fetchHotspots();
+      drawSpectralChart(false);
+      animate();
+    });
 
-    const markers = [];
-    const statuses = [
-      { color: 'red', text: '🟥 Methane Detected' },
-      { color: 'yellow', text: '🟨 Uncertain' }
-    ];
+    // -----------------------------------------------------------------
+    // 1. Three.js 3D Visual Engine Setup
+    // -----------------------------------------------------------------
+    function init3DEngine() {
+      const container = document.getElementById('canvas-container');
+      const width = window.innerWidth;
+      const height = window.innerHeight;
 
-    function generateRandomMarkers() {
-      // Remove existing markers
-      markers.forEach(m => map.removeLayer(m));
-      markers.length = 0;
+      // Scene
+      scene = new THREE.Scene();
+      scene.fog = new THREE.FogExp2(0x060913, 0.0006);
 
-      for (let i = 0; i < 10; i++) {
-        const lat = 8 + Math.random() * 22; // Latitude range for India
-        const lng = 68 + Math.random() * 25; // Longitude range for India
-        const status = statuses[Math.floor(Math.random() * statuses.length)];
+      // Camera
+      camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 2000);
+      camera.position.set(0, 30, 130);
 
-        const circle = L.circleMarker([lat, lng], {
-          color: status.color,
-          fillColor: status.color,
-          fillOpacity: 0.7,
-          radius: 10
-        }).addTo(map);
+      // Renderer
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
+      renderer.setSize(width, height);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.2;
+      container.appendChild(renderer.domElement);
 
-        circle.bindPopup(`<b>${status.text}</b><br>Lat: ${lat.toFixed(2)}, Lng: ${lng.toFixed(2)}`);
-        markers.push(circle);
+      // OrbitControls
+      controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.05;
+      controls.minDistance = 25;
+      controls.maxDistance = 450;
+      controls.rotateSpeed = 0.8;
+
+      // Lights
+      const ambientLight = new THREE.AmbientLight(0x223355, 1.2);
+      scene.add(ambientLight);
+
+      const sunLight = new THREE.DirectionalLight(0xffffff, 2.2);
+      sunLight.position.set(150, 80, 100);
+      scene.add(sunLight);
+
+      const rimLight = new THREE.DirectionalLight(0x00f0ff, 1.5);
+      rimLight.position.set(-150, -50, -100);
+      scene.add(rimLight);
+
+      // Groups
+      satellitesGroup = new THREE.Group();
+      beamsGroup = new THREE.Group();
+      plumeTerrainGroup = new THREE.Group();
+      plumeTerrainGroup.visible = false;
+
+      scene.add(satellitesGroup);
+      scene.add(beamsGroup);
+      scene.add(plumeTerrainGroup);
+
+      // Build 3D Entities
+      buildStarfield();
+      buildEarthGlobe();
+      buildAtmosphereCorona();
+      buildPlumeTerrainMesh();
+
+      // Window Resize Listener
+      window.addEventListener('resize', onWindowResize);
+    }
+
+    // High-Resolution Procedural Earth Textures
+    function generateProceduralEarthTexture() {
+      const canvas = document.createElement('canvas');
+      canvas.width = 2048;
+      canvas.height = 1024;
+      const ctx = canvas.getContext('2d');
+
+      // Deep Ocean Gradient
+      const oceanGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+      oceanGrad.addColorStop(0, '#0a192f');
+      oceanGrad.addColorStop(0.5, '#041124');
+      oceanGrad.addColorStop(1, '#0a192f');
+      ctx.fillStyle = oceanGrad;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Stylized Cyber Grid Lines & Continents Outline
+      ctx.strokeStyle = 'rgba(0, 240, 255, 0.12)';
+      ctx.lineWidth = 1;
+      for (let x = 0; x < canvas.width; x += 64) {
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+      }
+      for (let y = 0; y < canvas.height; y += 64) {
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+      }
+
+      // Draw Landmasses (High-Tech Procedural Blobs approximating Earth Geography)
+      ctx.fillStyle = '#0f2b3e';
+      const continents = [
+        // North America
+        { x: 450, y: 320, r: 160 }, { x: 550, y: 350, r: 120 }, { x: 380, y: 220, r: 130 },
+        // South America
+        { x: 620, y: 650, r: 140 }, { x: 600, y: 750, r: 90 },
+        // Eurasia
+        { x: 1200, y: 300, r: 240 }, { x: 1450, y: 340, r: 200 }, { x: 1000, y: 280, r: 140 }, { x: 1350, y: 480, r: 130 },
+        // Africa
+        { x: 1050, y: 550, r: 170 }, { x: 1100, y: 680, r: 110 },
+        // Australia
+        { x: 1680, y: 720, r: 110 }
+      ];
+
+      continents.forEach(c => {
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, c.r, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      // City Lights / Hotspot Nodes (Glowing Gold & Cyan Points)
+      for (let i = 0; i < 400; i++) {
+        const cx = Math.random() * canvas.width;
+        const cy = Math.random() * canvas.height;
+        ctx.fillStyle = Math.random() > 0.3 ? 'rgba(0, 240, 255, 0.7)' : 'rgba(255, 200, 50, 0.8)';
+        ctx.beginPath();
+        ctx.arc(cx, cy, Math.random() * 2 + 1, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.wrapS = THREE.RepeatWrapping;
+      texture.wrapT = THREE.ClampToEdgeWrapping;
+      return texture;
+    }
+
+    // Earth Globe Construction
+    function buildEarthGlobe() {
+      const geometry = new THREE.SphereGeometry(40, 64, 64);
+      const texture = generateProceduralEarthTexture();
+      
+      const material = new THREE.MeshStandardMaterial({
+        map: texture,
+        roughness: 0.6,
+        metalness: 0.25,
+        bumpScale: 0.08
+      });
+
+      earthMesh = new THREE.Mesh(geometry, material);
+      scene.add(earthMesh);
+
+      // Subtle Outer Cloud / Data Layer
+      const cloudGeo = new THREE.SphereGeometry(40.6, 64, 64);
+      const cloudCanvas = document.createElement('canvas');
+      cloudCanvas.width = 1024; cloudCanvas.height = 512;
+      const cctx = cloudCanvas.getContext('2d');
+      for (let i = 0; i < 60; i++) {
+        cctx.fillStyle = 'rgba(0, 240, 255, 0.04)';
+        cctx.beginPath();
+        cctx.arc(Math.random()*1024, Math.random()*512, Math.random()*120+40, 0, Math.PI*2);
+        cctx.fill();
+      }
+      const cloudTex = new THREE.CanvasTexture(cloudCanvas);
+      const cloudMat = new THREE.MeshStandardMaterial({
+        map: cloudTex,
+        transparent: true,
+        opacity: 0.6,
+        blending: THREE.AdditiveBlending
+      });
+      cloudsMesh = new THREE.Mesh(cloudGeo, cloudMat);
+      earthMesh.add(cloudsMesh);
+    }
+
+    // Atmospheric Corona Shader
+    function buildAtmosphereCorona() {
+      const atmoGeo = new THREE.SphereGeometry(43.5, 64, 64);
+      const atmoMat = new THREE.ShaderMaterial({
+        vertexShader: `
+          varying vec3 vNormal;
+          void main() {
+            vNormal = normalize(normalMatrix * normal);
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          }
+        `,
+        fragmentShader: `
+          varying vec3 vNormal;
+          void main() {
+            float intensity = pow(0.65 - dot(vNormal, vec3(0, 0, 1.0)), 2.8);
+            gl_FragColor = vec4(0.0, 0.85, 1.0, 1.0) * intensity * 1.8;
+          }
+        `,
+        blending: THREE.AdditiveBlending,
+        side: THREE.BackSide,
+        transparent: true
+      });
+
+      atmosphereMesh = new THREE.Mesh(atmoGeo, atmoMat);
+      scene.add(atmosphereMesh);
+    }
+
+    // Starfield Universe
+    function buildStarfield() {
+      const starGeo = new THREE.BufferGeometry();
+      const count = 3000;
+      const positions = new Float32Array(count * 3);
+      const colors = new Float32Array(count * 3);
+
+      for (let i = 0; i < count * 3; i += 3) {
+        positions[i] = (Math.random() - 0.5) * 1200;
+        positions[i + 1] = (Math.random() - 0.5) * 1200;
+        positions[i + 2] = (Math.random() - 0.5) * 1200;
+
+        colors[i] = 0.5 + Math.random() * 0.5;
+        colors[i + 1] = 0.8 + Math.random() * 0.2;
+        colors[i + 2] = 1.0;
+      }
+
+      starGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      starGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+      const starMat = new THREE.PointsMaterial({
+        size: 2.0,
+        vertexColors: true,
+        transparent: true,
+        opacity: 0.8
+      });
+
+      starfield = new THREE.Points(starGeo, starMat);
+      scene.add(starfield);
+    }
+
+    // Orbiting Satellites Constellation
+    function setupSatellites(satList) {
+      satellitesGroup.clear();
+
+      satList.forEach((sat, idx) => {
+        const satHolder = new THREE.Group();
+        const orbitRadius = 40 + (sat.altitude_km / 100) * 2.2;
+        const orbitAngle = (idx * Math.PI * 2) / satList.length;
+
+        // Satellite 3D Body (Gold Cubesat + Solar Wings)
+        const bodyGeo = new THREE.BoxGeometry(1.2, 0.8, 0.8);
+        const bodyMat = new THREE.MeshStandardMaterial({ color: 0xffd700, metalness: 0.9, roughness: 0.2 });
+        const body = new THREE.Mesh(bodyGeo, bodyMat);
+
+        // Solar Panels
+        const panelGeo = new THREE.BoxGeometry(3.6, 0.1, 0.8);
+        const panelMat = new THREE.MeshStandardMaterial({ color: 0x0055aa, metalness: 0.8, roughness: 0.3 });
+        const panels = new THREE.Mesh(panelGeo, panelMat);
+        body.add(panels);
+
+        // Sensor Laser Scanning Frustum Cone
+        const coneGeo = new THREE.ConeGeometry(4.5, orbitRadius - 40, 16, 1, true);
+        const coneMat = new THREE.MeshBasicMaterial({
+          color: 0x00f0ff,
+          transparent: true,
+          opacity: 0.15,
+          wireframe: true,
+          side: THREE.DoubleSide
+        });
+        const cone = new THREE.Mesh(coneGeo, coneMat);
+        cone.position.y = -(orbitRadius - 40) / 2;
+        cone.rotation.x = Math.PI;
+        body.add(cone);
+
+        satHolder.position.x = Math.cos(orbitAngle) * orbitRadius;
+        satHolder.position.z = Math.sin(orbitAngle) * orbitRadius;
+        satHolder.position.y = Math.sin(orbitAngle * 2) * 12;
+        satHolder.lookAt(0, 0, 0);
+
+        satHolder.userData = {
+          radius: orbitRadius,
+          speed: (sat.speed_kms || 7.5) * 0.0003,
+          angle: orbitAngle,
+          inclination: (sat.orbit_inclination || 98) * (Math.PI / 180),
+          name: sat.name
+        };
+
+        // Orbit Trajectory Ring
+        const ringGeo = new THREE.RingGeometry(orbitRadius - 0.1, orbitRadius + 0.1, 64);
+        const ringMat = new THREE.MeshBasicMaterial({ color: 0x00f0ff, transparent: true, opacity: 0.2, side: THREE.DoubleSide });
+        const ring = new THREE.Mesh(ringGeo, ringMat);
+        ring.rotation.x = Math.PI / 2 + (sat.orbit_inclination * 0.005);
+        satellitesGroup.add(ring);
+
+        satHolder.add(body);
+        satellitesGroup.add(satHolder);
+      });
+    }
+
+    // Global Hotspots 3D Emission Beams
+    function latLngToVector3(lat, lng, radius) {
+      const phi = (90 - lat) * (Math.PI / 180);
+      const theta = (lng + 180) * (Math.PI / 180);
+      return new THREE.Vector3(
+        -(radius * Math.sin(phi) * Math.cos(theta)),
+        radius * Math.cos(phi),
+        radius * Math.sin(phi) * Math.sin(theta)
+      );
+    }
+
+    function setupEmissionBeams(hotspots) {
+      beamsGroup.clear();
+
+      hotspots.forEach(hp => {
+        const pos = latLngToVector3(hp.lat, hp.lng, 40);
+        const beamHeight = 8 + (hp.flux_kg_hr / 350);
+
+        // Volumetric Cylinder Beam
+        const cylGeo = new THREE.CylinderGeometry(0.4, 1.2, beamHeight, 16);
+        cylGeo.translate(0, beamHeight / 2, 0);
+        cylGeo.rotateX(Math.PI / 2);
+
+        const cylMat = new THREE.MeshBasicMaterial({
+          color: hp.beamColor || 0xff3b30,
+          transparent: true,
+          opacity: 0.75,
+          blending: THREE.AdditiveBlending
+        });
+
+        const beam = new THREE.Mesh(cylGeo, cylMat);
+        beam.position.copy(pos);
+        beam.lookAt(0, 0, 0);
+        beam.rotateY(Math.PI);
+
+        // Base Pulse Ring
+        const ringGeo = new THREE.RingGeometry(0.8, 1.6, 24);
+        const ringMat = new THREE.MeshBasicMaterial({
+          color: hp.beamColor || 0xff3b30,
+          transparent: true,
+          opacity: 0.9,
+          side: THREE.DoubleSide
+        });
+        const ring = new THREE.Mesh(ringGeo, ringMat);
+        ring.position.copy(pos.clone().multiplyScalar(1.01));
+        ring.lookAt(0, 0, 0);
+
+        beam.userData = hp;
+        beamsGroup.add(beam);
+        beamsGroup.add(ring);
+      });
+    }
+
+    // -----------------------------------------------------------------
+    // 2. 3D Plume Topography / Elevation Surface Model
+    // -----------------------------------------------------------------
+    function buildPlumeTerrainMesh() {
+      const res = 48;
+      const size = 60;
+      const geometry = new THREE.PlaneGeometry(size, size, res - 1, res - 1);
+      geometry.rotateX(-Math.PI / 2);
+
+      const count = geometry.attributes.position.count;
+      geometry.setAttribute('color', new THREE.BufferAttribute(new Float32Array(count * 3), 3));
+
+      const material = new THREE.MeshStandardMaterial({
+        roughness: 0.4,
+        metalness: 0.1,
+        vertexColors: true,
+        wireframe: false,
+        side: THREE.DoubleSide
+      });
+
+      plumeMesh = new THREE.Mesh(geometry, material);
+      plumeTerrainGroup.add(plumeMesh);
+
+      // Base Grid Baseplate
+      const gridHelper = new THREE.GridHelper(size + 10, 20, 0x00f0ff, 0x1c2a3a);
+      gridHelper.position.y = -0.2;
+      plumeTerrainGroup.add(gridHelper);
+
+      // 3D Plume Particle Flow Simulation
+      const particleCount = 600;
+      const pGeo = new THREE.BufferGeometry();
+      const pPos = new Float32Array(particleCount * 3);
+      const pCol = new Float32Array(particleCount * 3);
+
+      for (let i = 0; i < particleCount; i++) {
+        pPos[i * 3] = (Math.random() - 0.5) * size;
+        pPos[i * 3 + 1] = Math.random() * 20;
+        pPos[i * 3 + 2] = (Math.random() - 0.5) * size;
+
+        pCol[i * 3] = 0.0;
+        pCol[i * 3 + 1] = 0.9;
+        pCol[i * 3 + 2] = 1.0;
+      }
+
+      pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+      pGeo.setAttribute('color', new THREE.BufferAttribute(pCol, 3));
+
+      const pMat = new THREE.PointsMaterial({
+        size: 1.8,
+        vertexColors: true,
+        transparent: true,
+        opacity: 0.75,
+        blending: THREE.AdditiveBlending
+      });
+
+      plumeParticles = new THREE.Points(pGeo, pMat);
+      plumeTerrainGroup.add(plumeParticles);
+    }
+
+    function getColorFromPalette(val, paletteName) {
+      const palette = COLORMAPS[paletteName] || COLORMAPS.plasma;
+      val = Math.max(0, Math.min(1, val));
+
+      for (let i = 0; i < palette.length - 1; i++) {
+        const [p1, c1] = palette[i];
+        const [p2, c2] = palette[i + 1];
+        if (val >= p1 && val <= p2) {
+          const t = (val - p1) / (p2 - p1);
+          return [
+            (c1[0] + t * (c2[0] - c1[0])) / 255,
+            (c1[1] + t * (c2[1] - c1[1])) / 255,
+            (c1[2] + t * (c2[2] - c1[2])) / 255
+          ];
+        }
+      }
+      return [1, 1, 1];
+    }
+
+    function update3DPlumeTerrain(grid, scale = heightScale, colormap = currentColormap) {
+      if (!grid || !plumeMesh) return;
+      currentElevationGrid = grid;
+
+      const posAttr = plumeMesh.geometry.attributes.position;
+      const colAttr = plumeMesh.geometry.attributes.color;
+      const res = grid.length;
+
+      let idx = 0;
+      for (let i = 0; i < res; i++) {
+        for (let j = 0; j < res; j++) {
+          const val = grid[i][j];
+          const y = val * scale;
+          posAttr.setY(idx, y);
+
+          const [r, g, b] = getColorFromPalette(val, colormap);
+          colAttr.setXYZ(idx, r, g, b);
+          idx++;
+        }
+      }
+
+      posAttr.needsUpdate = true;
+      colAttr.needsUpdate = true;
+      plumeMesh.geometry.computeVertexNormals();
+    }
+
+    // -----------------------------------------------------------------
+    // 3. UI Interactions & Mode Switching
+    // -----------------------------------------------------------------
+    function switchViewMode(mode) {
+      currentMode = mode;
+      document.getElementById('btnModeGlobe').classList.toggle('active', mode === 'globe');
+      document.getElementById('btnModePlume').classList.toggle('active', mode === 'plume');
+      document.getElementById('plumeToolbar').style.display = mode === 'plume' ? 'flex' : 'none';
+
+      if (mode === 'plume') {
+        // Hide Globe entities, show Plume terrain
+        earthMesh.visible = false;
+        atmosphereMesh.visible = false;
+        satellitesGroup.visible = false;
+        beamsGroup.visible = false;
+        plumeTerrainGroup.visible = true;
+
+        new TWEEN.Tween(camera.position)
+          .to({ x: 0, y: 35, z: 65 }, 1200)
+          .easing(TWEEN.Easing.Cubic.Out)
+          .start();
+        controls.target.set(0, 10, 0);
+
+        document.getElementById('hudTarget').textContent = '3D PLUME TOPOGRAPHY MESH';
+      } else {
+        // Return to Global Orbit
+        earthMesh.visible = true;
+        atmosphereMesh.visible = true;
+        satellitesGroup.visible = true;
+        beamsGroup.visible = true;
+        plumeTerrainGroup.visible = false;
+
+        new TWEEN.Tween(camera.position)
+          .to({ x: 0, y: 30, z: 130 }, 1200)
+          .easing(TWEEN.Easing.Cubic.Out)
+          .start();
+        controls.target.set(0, 0, 0);
+
+        document.getElementById('hudTarget').textContent = 'GLOBAL SATELLITE SURVEY';
       }
     }
 
-    // Only generate markers when button is clicked
-    document.getElementById("generateBtn").addEventListener("click", generateRandomMarkers);
+    function inspectIn3D() {
+      switchViewMode('plume');
+    }
+
+    function toggleAutoRotation(val) { autoRotate = val; }
+    function toggleAtmosphere(val) { atmosphereMesh.visible = val; }
+    function toggleSatellites(val) { satellitesGroup.visible = val; }
+    function toggleEmissionBeams(val) { beamsGroup.visible = val; }
+    
+    function updatePlumeHeightScale(val) {
+      heightScale = parseFloat(val);
+      if (currentElevationGrid) update3DPlumeTerrain(currentElevationGrid, heightScale, currentColormap);
+    }
+
+    function updateColormap(val) {
+      currentColormap = val;
+      if (currentElevationGrid) update3DPlumeTerrain(currentElevationGrid, heightScale, currentColormap);
+    }
+
+    function togglePlumeWireframe(val) {
+      wireframeActive = val;
+      plumeMesh.material.wireframe = val;
+    }
+
+    function togglePlumeParticles() {
+      particlesActive = !particlesActive;
+      plumeParticles.visible = particlesActive;
+      document.getElementById('btnParticles').classList.toggle('active', particlesActive);
+    }
+
+    function reset3DCamera() {
+      if (currentMode === 'globe') {
+        new TWEEN.Tween(camera.position).to({ x: 0, y: 30, z: 130 }, 1000).easing(TWEEN.Easing.Cubic.Out).start();
+        controls.target.set(0, 0, 0);
+      } else {
+        new TWEEN.Tween(camera.position).to({ x: 0, y: 35, z: 65 }, 1000).easing(TWEEN.Easing.Cubic.Out).start();
+        controls.target.set(0, 10, 0);
+      }
+    }
+
+    // Fly Camera to Lat / Lng Hotspot on 3D Globe
+    function flyToHotspot(hp) {
+      switchViewMode('globe');
+      const targetPos = latLngToVector3(hp.lat, hp.lng, 75);
+      
+      new TWEEN.Tween(camera.position)
+        .to({ x: targetPos.x, y: targetPos.y, z: targetPos.z }, 1400)
+        .easing(TWEEN.Easing.Cubic.Out)
+        .start();
+
+      controls.target.set(0, 0, 0);
+      document.getElementById('hudTarget').textContent = hp.name.toUpperCase();
+
+      // Show Reticle Pulse
+      const reticle = document.getElementById('targetReticle');
+      reticle.classList.add('active');
+      setTimeout(() => reticle.classList.remove('active'), 2500);
+    }
+
+    // -----------------------------------------------------------------
+    // 4. Data Fetching & AI Inference Handlers
+    // -----------------------------------------------------------------
+    async function fetchHotspots() {
+      try {
+        const res = await fetch('/api/hotspots');
+        const data = await res.json();
+        if (data.status === 'success') {
+          activeHotspots = data.hotspots;
+          setupSatellites(data.satellites);
+          setupEmissionBeams(data.hotspots);
+          renderHotspotsList(data.hotspots);
+          document.getElementById('activeSatsCount').textContent = `${data.satellites.length} SATELLITES TRACKING`;
+        }
+      } catch (err) {
+        console.error('Error fetching hotspots:', err);
+      }
+    }
+
+    function renderHotspotsList(hotspots) {
+      const container = document.getElementById('hotspotsList');
+      container.innerHTML = '';
+
+      hotspots.forEach(hp => {
+        const div = document.createElement('div');
+        div.className = 'hotspot-item';
+        div.onclick = () => flyToHotspot(hp);
+        div.innerHTML = `
+          <div class="hotspot-info">
+            <div class="hotspot-name">${hp.name}</div>
+            <div class="hotspot-region">${hp.region} • ${hp.flux_kg_hr} kg/h</div>
+          </div>
+          <span class="hotspot-badge ${hp.severity}">${hp.severity}</span>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    // File Upload Handling
+    async function handleFileSelect(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      showLoading(true, 'ANALYZING SPECTRAL ABSORPTION BANDS...');
+      const formData = new FormData();
+      formData.append('file', file);
+
+      try {
+        const res = await fetch('/api/predict', { method: 'POST', body: formData });
+        const data = await res.json();
+        showLoading(false);
+        if (data.status === 'success') {
+          applyPredictionResult(data);
+        } else {
+          alert('Error processing file: ' + (data.message || 'Unknown error'));
+        }
+      } catch (err) {
+        showLoading(false);
+        alert('Server connection error during AI inference');
+      }
+    }
+
+    async function loadSamplePreset(sampleId) {
+      showLoading(true, 'DOWNLINKING SATELLITE TILES...');
+      try {
+        const res = await fetch(`/api/sample/${sampleId}`);
+        const data = await res.json();
+        showLoading(false);
+        if (data.status === 'success') {
+          applyPredictionResult(data);
+        }
+      } catch (err) {
+        showLoading(false);
+        console.error('Error loading sample:', err);
+      }
+    }
+
+    function applyPredictionResult(data) {
+      currentPrediction = data;
+      const card = document.getElementById('resultCard');
+      card.style.display = 'flex';
+
+      const banner = document.getElementById('verdictBanner');
+      const text = document.getElementById('verdictText');
+      const icon = document.getElementById('verdictIcon');
+      const fill = document.getElementById('confFill');
+
+      if (data.has_methane) {
+        banner.className = 'verdict-banner methane';
+        text.textContent = '🚨 ' + data.label;
+        icon.textContent = 'CRITICAL';
+        fill.className = 'conf-fill methane';
+        fill.style.width = data.confidence_pct;
+        document.getElementById('metricRisk').style.color = 'var(--crimson-alert)';
+        document.getElementById('metricRisk').textContent = data.metrics.risk_level;
+      } else {
+        banner.className = 'verdict-banner no-methane';
+        text.textContent = '🌿 ' + data.label;
+        icon.textContent = 'CLEAN';
+        fill.className = 'conf-fill';
+        fill.style.width = data.confidence_pct;
+        document.getElementById('metricRisk').style.color = 'var(--emerald-green)';
+        document.getElementById('metricRisk').textContent = 'AMBIENT';
+      }
+
+      document.getElementById('confValueText').textContent = data.confidence_pct;
+      document.getElementById('metricFlux').innerHTML = `${data.metrics.flux_rate_kg_hr} <span class="metric-unit">kg/h</span>`;
+      document.getElementById('metricPeak').innerHTML = `${data.metrics.peak_concentration_ppm_m} <span class="metric-unit">ppm·m</span>`;
+      document.getElementById('metricArea').innerHTML = `${data.metrics.plume_area_km2} <span class="metric-unit">km²</span>`;
+
+      // Update 3D Topography Elevation Matrix
+      if (data.elevation_grid) {
+        update3DPlumeTerrain(data.elevation_grid);
+      }
+
+      // Draw Spectral Absorption Graph
+      drawSpectralChart(data.has_methane);
+    }
+
+    function showLoading(show, text = 'ANALYZING SPECTRAL DATA...') {
+      const el = document.getElementById('loadingScanner');
+      el.style.display = show ? 'flex' : 'none';
+      if (text) document.getElementById('loadingStatusText').textContent = text;
+    }
+
+    // Draw Live SWIR Spectral Absorption Canvas Chart
+    function drawSpectralChart(hasPlume) {
+      const canvas = document.getElementById('spectralCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width;
+      const h = canvas.height;
+
+      ctx.clearRect(0, 0, w, h);
+
+      // Grid background
+      ctx.strokeStyle = 'rgba(0, 240, 255, 0.08)';
+      ctx.lineWidth = 1;
+      for (let x = 0; x < w; x += 40) {
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+      }
+      for (let y = 0; y < h; y += 20) {
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+      }
+
+      // Spectral Curve
+      ctx.beginPath();
+      ctx.strokeStyle = hasPlume ? '#ef4444' : '#00f0ff';
+      ctx.lineWidth = 2.5;
+      ctx.shadowColor = hasPlume ? 'rgba(239, 68, 68, 0.6)' : 'rgba(0, 240, 255, 0.6)';
+      ctx.shadowBlur = 8;
+
+      for (let x = 0; x < w; x++) {
+        const normX = x / w;
+        let baseline = 0.5 + 0.15 * Math.sin(normX * 6);
+        // Characteristic CH4 absorption dip at 2.30 µm (approx x=0.65)
+        if (hasPlume) {
+          const dip = 0.45 * Math.exp(-Math.pow((normX - 0.65) / 0.08, 2));
+          baseline -= dip;
+        }
+        const y = h - (baseline * h * 0.8 + 10);
+        if (x === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      // Marker for 2.3 µm
+      const markerX = w * 0.65;
+      ctx.fillStyle = hasPlume ? '#ef4444' : '#00f0ff';
+      ctx.font = '9px JetBrains Mono';
+      ctx.fillText('2.30µm CH₄ Dip', markerX - 35, 20);
+    }
+
+    // UI Clock & Initialization
+    function initUI() {
+      // Clock Updater
+      setInterval(() => {
+        const now = new Date();
+        document.getElementById('utcClock').textContent = 'UTC ' + now.toUTCString().split(' ')[4];
+      }, 1000);
+
+      // Drag & drop dropzone listeners
+      const dropzone = document.getElementById('dropzone');
+      dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('drag-over'); });
+      dropzone.addEventListener('dragleave', () => { dropzone.classList.remove('drag-over'); });
+      dropzone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropzone.classList.remove('drag-over');
+        if (e.dataTransfer.files.length > 0) {
+          document.getElementById('fileInput').files = e.dataTransfer.files;
+          handleFileSelect({ target: { files: e.dataTransfer.files } });
+        }
+      });
+    }
+
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    // -----------------------------------------------------------------
+    // 5. Main Render & Animation Loop
+    // -----------------------------------------------------------------
+    let clock = new THREE.Clock();
+
+    function animate() {
+      requestAnimationFrame(animate);
+      TWEEN.update();
+
+      const delta = clock.getDelta();
+      const time = clock.getElapsedTime();
+
+      // Globe Mode Animations
+      if (currentMode === 'globe') {
+        if (autoRotate && earthMesh) {
+          earthMesh.rotation.y += 0.0012;
+          if (cloudsMesh) cloudsMesh.rotation.y += 0.0016;
+        }
+
+        // Animate Orbiting Satellites
+        satellitesGroup.children.forEach(satHolder => {
+          if (satHolder.userData && satHolder.userData.radius) {
+            satHolder.userData.angle += satHolder.userData.speed;
+            const r = satHolder.userData.radius;
+            const a = satHolder.userData.angle;
+            satHolder.position.x = Math.cos(a) * r;
+            satHolder.position.z = Math.sin(a) * r;
+            satHolder.position.y = Math.sin(a * 2) * 12;
+            satHolder.lookAt(0, 0, 0);
+          }
+        });
+
+        // Pulsing Beam Waves
+        beamsGroup.children.forEach((mesh, idx) => {
+          if (mesh.geometry instanceof THREE.RingGeometry) {
+            const scale = 1.0 + 0.3 * Math.sin(time * 3 + idx);
+            mesh.scale.set(scale, scale, 1);
+          }
+        });
+      }
+
+      // Plume Terrain Particle Dispersion Simulation
+      if (currentMode === 'plume' && plumeParticles && particlesActive) {
+        const positions = plumeParticles.geometry.attributes.position.array;
+        for (let i = 0; i < positions.length; i += 3) {
+          positions[i] += Math.sin(time + i) * 0.08 + 0.05; // Wind drift X
+          positions[i + 1] += 0.04; // Rising thermal plume Y
+          positions[i + 2] += Math.cos(time + i) * 0.04; // Wind drift Z
+
+          if (positions[i + 1] > 25) {
+            positions[i + 1] = 0;
+            positions[i] = (Math.random() - 0.5) * 30;
+            positions[i + 2] = (Math.random() - 0.5) * 30;
+          }
+        }
+        plumeParticles.geometry.attributes.position.needsUpdate = true;
+      }
+
+      controls.update();
+      renderer.render(scene, camera);
+    }
   </script>
 </body>
 </html>

@@ -1,4 +1,9 @@
+torch
+torchvision
+flask
 rasterio
 pandas
 openpyxl
 numpy
+pillow
+scikit-learn

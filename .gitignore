@@ -2,6 +2,7 @@
 __pycache__/
 *.py[cod]
 *$py.class
+scripts/uploads/preview_*.png
 
 # Distribution / packaging
 .Python
