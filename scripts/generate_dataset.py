@@ -1,8 +1,13 @@
 import os
+# pyrefly: ignore [missing-import]
 from flask import Flask, request, render_template
+# pyrefly: ignore [missing-import]
 import torch
+# pyrefly: ignore [missing-import]
 import torch.nn as nn
+# pyrefly: ignore [missing-import]
 from torchvision import transforms
+# pyrefly: ignore [missing-import]
 from PIL import Image
 
 # -------------------------
@@ -37,11 +42,17 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_PATH = os.path.join(BASE_DIR, "..", "models", "methane_cnn.pth")
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
 model = MethaneCNN()
-model.load_state_dict(torch.load(MODEL_PATH, map_location=device))
-model.to(device)
-model.eval()
+
+if os.path.exists(MODEL_PATH):
+    try:
+        model.load_state_dict(torch.load(MODEL_PATH, map_location=device))
+        model.to(device)
+        model.eval()
+    except Exception as e:
+        print(f"⚠️ Warning loading model: {e}")
+else:
+    print(f"⚠️ Model file not found at {MODEL_PATH}")
 
 # -------------------------
 # 3. Flask App

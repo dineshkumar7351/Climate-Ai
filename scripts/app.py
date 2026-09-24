@@ -3,11 +3,18 @@ import io
 import json
 import time
 import uuid
+# pyrefly: ignore [missing-import]
 import numpy as np
+# pyrefly: ignore [missing-import]
 from flask import Flask, request, render_template, jsonify, send_from_directory
+
+# pyrefly: ignore [missing-import]
 import torch
+# pyrefly: ignore [missing-import]
 import torch.nn as nn
+# pyrefly: ignore [missing-import]
 from torchvision import transforms
+# pyrefly: ignore [missing-import]
 from PIL import Image
 
 # -------------------------

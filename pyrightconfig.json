@@ -1,0 +1,13 @@
+{
+  "include": [
+    "scripts"
+  ],
+  "extraPaths": [
+    "./scripts",
+    "C:/Users/dines/AppData/Local/Programs/Python/Python312/Lib/site-packages"
+  ],
+  "pythonVersion": "3.12",
+  "pythonPlatform": "Windows",
+  "reportMissingImports": false,
+  "reportMissingTypeStubs": false
+}

@@ -1,19 +1,28 @@
-# train.py
+# train_model.py
 import os
+# pyrefly: ignore [missing-import]
 import torch
+# pyrefly: ignore [missing-import]
 import torch.nn as nn
+# pyrefly: ignore [missing-import]
 import torch.optim as optim
+# pyrefly: ignore [missing-import]
 from torch.utils.data import DataLoader, random_split
+# pyrefly: ignore [missing-import]
 from torchvision import transforms
+# pyrefly: ignore [missing-import]
 import numpy as np
 from sklearn.metrics import confusion_matrix, classification_report
 from methane_dataset import MethaneDataset
 
 # -------------------------------
-# 1️⃣ Settings
+# 1️⃣ Settings & Path Resolution
 # -------------------------------
-CSV_FILE = "../data/training/methane_dataset.csv"
-ROOT_DIR = "../data/raw_tiffs"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+CSV_FILE = os.path.join(BASE_DIR, "..", "data", "training", "methane_dataset.csv")
+ROOT_DIR = os.path.join(BASE_DIR, "..", "data", "raw_tiffs")
+MODEL_SAVE_PATH = os.path.join(BASE_DIR, "..", "models", "methane_cnn.pth")
+
 BATCH_SIZE = 8
 NUM_EPOCHS = 20
 LEARNING_RATE = 1e-4
@@ -23,7 +32,6 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # 2️⃣ Dataset & DataLoader
 # -------------------------------
 transform = transforms.Compose([
-    transforms.ToPILImage(),
     transforms.Resize((128, 128)),
     transforms.RandomHorizontalFlip(),
     transforms.RandomVerticalFlip(),
@@ -66,77 +74,79 @@ class MethaneCNN(nn.Module):
         x = self.classifier(x)
         return x
 
-model = MethaneCNN().to(DEVICE)
-
-# -------------------------------
-# 4️⃣ Loss & Optimizer
-# -------------------------------
-criterion = nn.CrossEntropyLoss()
-optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
-
-# -------------------------------
-# 5️⃣ Training Loop
-# -------------------------------
-for epoch in range(NUM_EPOCHS):
-    model.train()
-    running_loss, correct, total = 0.0, 0, 0
-
-    for imgs, labels in train_loader:
-        imgs, labels = imgs.to(DEVICE), labels.to(DEVICE)
-
-        # Normalize per image (zero mean, unit variance)
-        imgs = (imgs - imgs.mean(dim=[1,2,3], keepdim=True)) / (imgs.std(dim=[1,2,3], keepdim=True) + 1e-6)
-
-        optimizer.zero_grad()
-        outputs = model(imgs)
-        loss = criterion(outputs, labels)
-        loss.backward()
-        optimizer.step()
-
-        running_loss += loss.item() * imgs.size(0)
-        _, predicted = torch.max(outputs, 1)
-        total += labels.size(0)
-        correct += (predicted == labels).sum().item()
-
-    train_loss = running_loss / len(train_dataset)
-    train_acc = correct / total
+if __name__ == "__main__":
+    print(f"Loaded dataset: {len(dataset)} samples ({train_size} train / {val_size} val)")
+    model = MethaneCNN().to(DEVICE)
 
     # -------------------------------
-    # Validation
+    # 4️⃣ Loss & Optimizer
     # -------------------------------
-    model.eval()
-    val_loss, val_correct, val_total = 0.0, 0, 0
-    all_preds, all_labels = [], []
+    criterion = nn.CrossEntropyLoss()
+    optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
-    with torch.no_grad():
-        for imgs, labels in val_loader:
+    # -------------------------------
+    # 5️⃣ Training Loop
+    # -------------------------------
+    for epoch in range(NUM_EPOCHS):
+        model.train()
+        running_loss, correct, total = 0.0, 0, 0
+
+        for imgs, labels in train_loader:
             imgs, labels = imgs.to(DEVICE), labels.to(DEVICE)
-            imgs = (imgs - imgs.mean(dim=[1,2,3], keepdim=True)) / (imgs.std(dim=[1,2,3], keepdim=True) + 1e-6)
 
+            # Normalize per image (zero mean, unit variance)
+            imgs = (imgs - imgs.mean(dim=[1, 2, 3], keepdim=True)) / (imgs.std(dim=[1, 2, 3], keepdim=True) + 1e-6)
+
+            optimizer.zero_grad()
             outputs = model(imgs)
             loss = criterion(outputs, labels)
+            loss.backward()
+            optimizer.step()
 
-            val_loss += loss.item() * imgs.size(0)
+            running_loss += loss.item() * imgs.size(0)
             _, predicted = torch.max(outputs, 1)
-            val_total += labels.size(0)
-            val_correct += (predicted == labels).sum().item()
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
 
-            all_preds.extend(predicted.cpu().numpy())
-            all_labels.extend(labels.cpu().numpy())
+        train_loss = running_loss / max(1, len(train_dataset))
+        train_acc = correct / max(1, total)
 
-    val_loss /= len(val_dataset)
-    val_acc = val_correct / val_total
+        # -------------------------------
+        # Validation
+        # -------------------------------
+        model.eval()
+        val_loss, val_correct, val_total = 0.0, 0, 0
+        all_preds, all_labels = [], []
 
-    print(f"\nEpoch [{epoch+1}/{NUM_EPOCHS}]")
-    print(f"Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.4f}")
-    print(f"Val Loss: {val_loss:.4f}, Val Acc: {val_acc:.4f}")
-    print("Confusion Matrix:")
-    print(confusion_matrix(all_labels, all_preds))
-    print(classification_report(all_labels, all_preds, target_names=["No Methane", "Methane"]))
+        with torch.no_grad():
+            for imgs, labels in val_loader:
+                imgs, labels = imgs.to(DEVICE), labels.to(DEVICE)
+                imgs = (imgs - imgs.mean(dim=[1, 2, 3], keepdim=True)) / (imgs.std(dim=[1, 2, 3], keepdim=True) + 1e-6)
 
-# -------------------------------
-# 6️⃣ Save Model
-# -------------------------------
-os.makedirs("../models", exist_ok=True)
-torch.save(model.state_dict(), "../models/methane_cnn.pth")
-print("✅ Model saved to ../models/methane_cnn.pth")
+                outputs = model(imgs)
+                loss = criterion(outputs, labels)
+
+                val_loss += loss.item() * imgs.size(0)
+                _, predicted = torch.max(outputs, 1)
+                val_total += labels.size(0)
+                val_correct += (predicted == labels).sum().item()
+
+                all_preds.extend(predicted.cpu().numpy())
+                all_labels.extend(labels.cpu().numpy())
+
+        val_loss /= max(1, len(val_dataset))
+        val_acc = val_correct / max(1, val_total)
+
+        print(f"\nEpoch [{epoch+1}/{NUM_EPOCHS}]")
+        print(f"Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.4f}")
+        print(f"Val Loss: {val_loss:.4f}, Val Acc: {val_acc:.4f}")
+        print("Confusion Matrix:")
+        print(confusion_matrix(all_labels, all_preds))
+        print(classification_report(all_labels, all_preds, target_names=["No Methane", "Methane"], zero_division=0))
+
+    # -------------------------------
+    # 6️⃣ Save Model
+    # -------------------------------
+    os.makedirs(os.path.dirname(MODEL_SAVE_PATH), exist_ok=True)
+    torch.save(model.state_dict(), MODEL_SAVE_PATH)
+    print(f"✅ Model saved to {MODEL_SAVE_PATH}")
